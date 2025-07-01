@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "863742835429",
+    "firebase_url": "https://usuarios-ff1aa-default-rtdb.firebaseio.com",
+    "project_id": "usuarios-ff1aa",
+    "storage_bucket": "usuarios-ff1aa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:863742835429:android:1f13e8f02e9dbe9c25720c",
+        "android_client_info": {
+          "package_name": "com.example.prueba_api"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2C4nrq4lGs6E-L4YtUJ3bLpBmuJLsp3A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
