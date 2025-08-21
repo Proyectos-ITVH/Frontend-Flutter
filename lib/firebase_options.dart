@@ -41,51 +41,47 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBqKkQVb-nu1gttshWttF9nhUlLG02mFcs',
-    appId: '1:863742835429:web:32e6fa1ba0c64a2625720c',
-    messagingSenderId: '863742835429',
-    projectId: 'usuarios-ff1aa',
-    authDomain: 'usuarios-ff1aa.firebaseapp.com',
-    databaseURL: 'https://usuarios-ff1aa-default-rtdb.firebaseio.com',
-    storageBucket: 'usuarios-ff1aa.firebasestorage.app',
+    apiKey: 'AIzaSyDbRSVmx36ra_qPlPw-_O1vJjw_zFX15C0',
+    appId: '1:132951764258:web:0f93484fa6d1061bb3897b',
+    messagingSenderId: '132951764258',
+    projectId: 'iot-calidad-agua-3165b',
+    authDomain: 'iot-calidad-agua-3165b.firebaseapp.com',
+    storageBucket: 'iot-calidad-agua-3165b.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyA2C4nrq4lGs6E-L4YtUJ3bLpBmuJLsp3A',
-    appId: '1:863742835429:android:1f13e8f02e9dbe9c25720c',
-    messagingSenderId: '863742835429',
-    projectId: 'usuarios-ff1aa',
-    databaseURL: 'https://usuarios-ff1aa-default-rtdb.firebaseio.com',
-    storageBucket: 'usuarios-ff1aa.firebasestorage.app',
+    apiKey: 'AIzaSyDSkHVQICQ712enYj5qWnOadcjOzA4Nwvg',
+    appId: '1:132951764258:android:51ab66c1790b68f2b3897b',
+    messagingSenderId: '132951764258',
+    projectId: 'iot-calidad-agua-3165b',
+    storageBucket: 'iot-calidad-agua-3165b.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCc3WDTqKBWK7EaznRFxxQBhateaF3Pbx8',
-    appId: '1:863742835429:ios:3816634e2d12174425720c',
-    messagingSenderId: '863742835429',
-    projectId: 'usuarios-ff1aa',
-    databaseURL: 'https://usuarios-ff1aa-default-rtdb.firebaseio.com',
-    storageBucket: 'usuarios-ff1aa.firebasestorage.app',
+    apiKey: 'AIzaSyDvdVt0e0VCwaF6bvPwsZ7y6tkaZ1wj6lI',
+    appId: '1:132951764258:ios:8a272ac965266b7cb3897b',
+    messagingSenderId: '132951764258',
+    projectId: 'iot-calidad-agua-3165b',
+    storageBucket: 'iot-calidad-agua-3165b.firebasestorage.app',
     iosBundleId: 'com.example.pruebaApi',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCc3WDTqKBWK7EaznRFxxQBhateaF3Pbx8',
-    appId: '1:863742835429:ios:3816634e2d12174425720c',
-    messagingSenderId: '863742835429',
-    projectId: 'usuarios-ff1aa',
-    databaseURL: 'https://usuarios-ff1aa-default-rtdb.firebaseio.com',
-    storageBucket: 'usuarios-ff1aa.firebasestorage.app',
+    apiKey: 'AIzaSyDvdVt0e0VCwaF6bvPwsZ7y6tkaZ1wj6lI',
+    appId: '1:132951764258:ios:8a272ac965266b7cb3897b',
+    messagingSenderId: '132951764258',
+    projectId: 'iot-calidad-agua-3165b',
+    storageBucket: 'iot-calidad-agua-3165b.firebasestorage.app',
     iosBundleId: 'com.example.pruebaApi',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBqKkQVb-nu1gttshWttF9nhUlLG02mFcs',
-    appId: '1:863742835429:web:934560a6595f387425720c',
-    messagingSenderId: '863742835429',
-    projectId: 'usuarios-ff1aa',
-    authDomain: 'usuarios-ff1aa.firebaseapp.com',
-    databaseURL: 'https://usuarios-ff1aa-default-rtdb.firebaseio.com',
-    storageBucket: 'usuarios-ff1aa.firebasestorage.app',
+    apiKey: 'AIzaSyDbRSVmx36ra_qPlPw-_O1vJjw_zFX15C0',
+    appId: '1:132951764258:web:e7fc8100e21ea96bb3897b',
+    messagingSenderId: '132951764258',
+    projectId: 'iot-calidad-agua-3165b',
+    authDomain: 'iot-calidad-agua-3165b.firebaseapp.com',
+    storageBucket: 'iot-calidad-agua-3165b.firebasestorage.app',
   );
+
 }
