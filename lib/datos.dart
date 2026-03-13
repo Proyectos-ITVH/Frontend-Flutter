@@ -1,30 +1,16 @@
-//  A la próxima persona que se encargue de trabajar con este código,
-//  nomás te aviso que solo Dios y yo sabemos como va, pero si lo estas
-//  modificando es porque yo ya no estoy, así que, que dios te bendiga,
-//  porque solo el sabrá como jala esta cosa.
-//    - The Black Fenix 937
-
 // ===============================
 // IMPORTACIONES
 // ===============================
 
-// Widgets base de Flutter (Material Design)
 import 'package:flutter/material.dart';
-
-// Firebase Firestore para leer datos en tiempo real
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-// Para dar formato a fechas y horas
 import 'package:intl/intl.dart';
-
-// Para leer datos guardados localmente (rol del usuario)
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Pantallas adicionales
-import 'othercalcs.dart'; // Pantalla de otros cálculos
-import 'export.dart'; // Pantalla para exportar datos
-import 'userPerf.dart'; // Perfil del usuario
-import 'crudUser.dart'; // CRUD de usuarios (solo admin)
+import 'othercalcs.dart';
+import 'export.dart';
+import 'userPerf.dart';
+import 'crudUser.dart';
 
 // ===============================
 // WIDGET PRINCIPAL
@@ -40,72 +26,110 @@ class DatosScreen extends StatefulWidget {
 // ESTADO DEL WIDGET
 // ===============================
 class _DatosScreenState extends State<DatosScreen> {
-  // Estanque actualmente seleccionado
-  String _estanqueSeleccionado = 'Estanque1';
+  String _estanqueSeleccionado = '';
+  List<String> _listaEstanques = [];
+  Map<String, bool> _sensoresAsignados = {};
 
-  // Colores base usados en la UI
   static const azul = Color(0xFF005BBB);
   static const dorado = Color(0xFFE3B23C);
   static const morado = Color(0xFF3C2E7F);
 
   // ===============================
-  // OBTENER EL ROL DEL USUARIO
+  // INIT
+  // ===============================
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstanques();
+  }
+
+  // ===============================
+  // CARGAR ESTANQUES
+  // ===============================
+  Future<void> _cargarEstanques() async {
+    final snapshot =
+        await FirebaseFirestore.instance.collection('estanques').get();
+
+    final estanques = snapshot.docs.map((doc) => doc.id).toList();
+
+    setState(() {
+      _listaEstanques = estanques;
+
+      if (_estanqueSeleccionado.isEmpty && estanques.isNotEmpty) {
+        _estanqueSeleccionado = estanques.first;
+        _cargarSensoresAsignados();
+      }
+    });
+  }
+
+  // ===============================
+  // CARGAR SENSORES DEL ESTANQUE
+  // ===============================
+  Future<void> _cargarSensoresAsignados() async {
+    final doc =
+        await FirebaseFirestore.instance
+            .collection('estanques')
+            .doc(_estanqueSeleccionado)
+            .get();
+
+    if (doc.exists) {
+      final data = doc.data();
+
+      setState(() {
+        _sensoresAsignados = Map<String, bool>.from(
+          data?['sensores_asignados'] ?? {},
+        );
+      });
+    }
+  }
+
+  // ===============================
+  // OBTENER ROL
   // ===============================
   Future<String> _getUserRol() async {
-    // Accede a las preferencias locales
     final prefs = await SharedPreferences.getInstance();
-
-    // Retorna el rol guardado o "user" por defecto
     return prefs.getString('user_rol') ?? 'user';
   }
 
   // ===============================
-  // FORMATEAR TIMESTAMP DE FIRESTORE
+  // FORMATEAR FECHA
   // ===============================
   String _formatTimestamp(Timestamp timestamp) {
-    // Convierte Timestamp a DateTime
     final DateTime dateTime = timestamp.toDate();
 
-    // Define formato de fecha en español
     final DateFormat dateFormat = DateFormat(
       "d 'de' MMMM 'de' yyyy, h:mm:ss a",
       'es_ES',
     );
 
-    // Retorna fecha formateada
     return dateFormat.format(dateTime);
   }
 
   // ===============================
-  // DETERMINAR COLOR SEGÚN VALOR
+  // COLOR SEGUN SENSOR
   // ===============================
   Color determinarColor(String key, String valueStr) {
-    // Convierte el valor a double
     double? value = double.tryParse(valueStr);
     if (value == null) return Colors.grey;
 
-    // Reglas para TEMPERATURA
     if (key.toLowerCase().contains('temperatura')) {
       if (value < 27) return Colors.amber;
       if (value > 31) return Colors.red;
       return Colors.green;
     }
 
-    // Reglas para PH
     if (key.toLowerCase().contains('ph')) {
       if (value < 6.5) return Colors.amber;
       if (value > 8.0) return Colors.red;
       return Colors.green;
     }
 
-    // Reglas para OXÍGENO DISUELTO
     if (key.toLowerCase().contains('oxigeno')) {
       if (value < 5) return Colors.red;
       if (value >= 5 && value <= 8) return Colors.green;
       if (value > 8) return Colors.amber;
     }
 
-    // Reglas para SÓLIDOS DISUELTOS / TDS / TURBIDEZ
     if (key.toLowerCase().contains('solidos_disueltos') ||
         key.toLowerCase().contains('tds') ||
         key.toLowerCase().contains('turbidez')) {
@@ -114,27 +138,27 @@ class _DatosScreenState extends State<DatosScreen> {
       return Colors.amber;
     }
 
-    // Color por defecto
     return azul;
   }
 
   // ===============================
-  // INTERFAZ PRINCIPAL
+  // INTERFAZ
   // ===============================
   @override
   Widget build(BuildContext context) {
-    // Espera obtener el rol del usuario
+    if (_listaEstanques.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return FutureBuilder<String>(
       future: _getUserRol(),
       builder: (context, snapshotRol) {
-        // Mientras carga el rol
         if (!snapshotRol.hasData) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // Rol obtenido
         final rol = snapshotRol.data!;
 
         return Scaffold(
@@ -144,32 +168,30 @@ class _DatosScreenState extends State<DatosScreen> {
           appBar: AppBar(
             backgroundColor: azul,
             foregroundColor: Colors.white,
-
-            // Dropdown para seleccionar estanque
             title: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 dropdownColor: azul,
-                value: _estanqueSeleccionado,
+                value:
+                    _listaEstanques.contains(_estanqueSeleccionado)
+                        ? _estanqueSeleccionado
+                        : null,
                 icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: 'Estanque1',
-                    child: Text('Estanque 1'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'Estanque2',
-                    child: Text('Estanque 2'),
-                  ),
-                ],
+                items:
+                    _listaEstanques.map((estanque) {
+                      return DropdownMenuItem(
+                        value: estanque,
+                        child: Text(estanque),
+                      );
+                    }).toList(),
                 onChanged: (String? newValue) {
-                  // Cambia el estanque seleccionado
                   setState(() {
                     _estanqueSeleccionado = newValue!;
                   });
+                  _cargarSensoresAsignados();
                 },
               ),
             ),
@@ -177,12 +199,11 @@ class _DatosScreenState extends State<DatosScreen> {
           ),
 
           // ===============================
-          // CUERPO PRINCIPAL
+          // BODY
           // ===============================
           body: Container(
             color: Colors.white,
             child: StreamBuilder<QuerySnapshot>(
-              // Consulta en tiempo real a Firestore
               stream:
                   FirebaseFirestore.instance
                       .collection('lecturas_sensores')
@@ -190,19 +211,15 @@ class _DatosScreenState extends State<DatosScreen> {
                       .orderBy('timestamp', descending: true)
                       .limit(1)
                       .snapshots(),
-
               builder: (context, snapshot) {
-                // Mientras carga
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                // Error en Firestore
                 if (snapshot.hasError) {
                   return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
-                // Sin datos
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
                     child: Text(
@@ -212,9 +229,6 @@ class _DatosScreenState extends State<DatosScreen> {
                   );
                 }
 
-                // ===============================
-                // PROCESAR DATOS
-                // ===============================
                 final rawData =
                     snapshot.data!.docs.first.data() as Map<String, dynamic>;
 
@@ -223,20 +237,25 @@ class _DatosScreenState extends State<DatosScreen> {
 
                 final timestamp = rawData['timestamp'] as Timestamp;
 
-                // Convierte valores a String
-                final valoresSensoresString = valoresSensores.map((key, value) {
-                  return MapEntry(key, value.toString());
+                // Crear mapa base usando sensores asignados
+                Map<String, String> sensoresFinal = {};
+
+                _sensoresAsignados.forEach((key, activo) {
+                  if (activo) {
+                    sensoresFinal[key] = "Sin valores";
+                  }
                 });
 
-                // ===============================
-                // UI DE DATOS
-                // ===============================
+                // Sobrescribir con datos reales
+                valoresSensores.forEach((key, value) {
+                  sensoresFinal[key] = value.toString();
+                });
+
                 return Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Tarjeta de fecha y hora
                       Card(
                         color: azul,
                         shape: RoundedRectangleBorder(
@@ -264,11 +283,10 @@ class _DatosScreenState extends State<DatosScreen> {
 
                       const SizedBox(height: 16),
 
-                      // Grid de sensores
                       GridView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: valoresSensoresString.length,
+                        itemCount: sensoresFinal.length,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
@@ -277,28 +295,32 @@ class _DatosScreenState extends State<DatosScreen> {
                               childAspectRatio: 1.4,
                             ),
                         itemBuilder: (context, index) {
-                          final sensorKey = valoresSensoresString.keys
-                              .elementAt(index);
-                          final sensorValue = valoresSensoresString.values
-                              .elementAt(index);
-
-                          final backgroundColor = determinarColor(
-                            sensorKey,
-                            sensorValue,
+                          final sensorKey = sensoresFinal.keys.elementAt(index);
+                          final sensorValue = sensoresFinal.values.elementAt(
+                            index,
                           );
 
-                          // Agrega unidad según tipo de sensor
+                          final backgroundColor =
+                              sensorValue == "Sin valores"
+                                  ? Colors.grey
+                                  : determinarColor(sensorKey, sensorValue);
+
                           String valueWithUnit = sensorValue;
-                          if (sensorKey.toLowerCase().contains('temperatura')) {
-                            valueWithUnit += ' °C';
-                          } else if (sensorKey.toLowerCase().contains('ph')) {
-                            valueWithUnit += ' pH';
-                          } else if (sensorKey.toLowerCase().contains(
-                            'oxigeno',
-                          )) {
-                            valueWithUnit += ' mg/l';
-                          } else {
-                            valueWithUnit += ' ppm';
+
+                          if (sensorValue != "Sin valores") {
+                            if (sensorKey.toLowerCase().contains(
+                              'temperatura',
+                            )) {
+                              valueWithUnit += ' °C';
+                            } else if (sensorKey.toLowerCase().contains('ph')) {
+                              valueWithUnit += ' pH';
+                            } else if (sensorKey.toLowerCase().contains(
+                              'oxigeno',
+                            )) {
+                              valueWithUnit += ' mg/l';
+                            } else {
+                              valueWithUnit += ' ppm';
+                            }
                           }
 
                           return Container(
@@ -348,7 +370,7 @@ class _DatosScreenState extends State<DatosScreen> {
           ),
 
           // ===============================
-          // BOTTOM NAVIGATION BAR
+          // BOTTOM NAV
           // ===============================
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: 0,
@@ -357,10 +379,7 @@ class _DatosScreenState extends State<DatosScreen> {
             selectedItemColor: dorado,
             unselectedItemColor: Colors.white,
             iconSize: 28,
-
-            // Acciones según el botón presionado
             onTap: (index) async {
-              // Obtiene el último registro del estanque
               final snapshot =
                   await FirebaseFirestore.instance
                       .collection('lecturas_sensores')
@@ -370,6 +389,7 @@ class _DatosScreenState extends State<DatosScreen> {
                       .get();
 
               final raw = snapshot.docs.first.data();
+
               final valoresSensores =
                   raw['valores_sensores'] as Map<String, dynamic>;
 
@@ -377,9 +397,8 @@ class _DatosScreenState extends State<DatosScreen> {
                 return MapEntry(key, value.toString());
               });
 
-              // Lista de acciones
               final List<VoidCallback> actions = [
-                () {}, // Informe por estanque
+                () {},
                 () {
                   Navigator.push(
                     context,
@@ -410,7 +429,6 @@ class _DatosScreenState extends State<DatosScreen> {
                 },
               ];
 
-              // Opción extra solo para admin
               if (rol == "admin") {
                 actions.add(() {
                   Navigator.push(
@@ -426,8 +444,6 @@ class _DatosScreenState extends State<DatosScreen> {
                 actions[index]();
               }
             },
-
-            // Items visibles
             items: [
               const BottomNavigationBarItem(
                 icon: Icon(Icons.description_rounded),

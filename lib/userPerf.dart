@@ -42,11 +42,31 @@ class _UserPerfScreenState extends State<UserPerfScreen> {
   // Obtiene datos guardados localmente (SharedPreferences)
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      email = prefs.getString('user_email') ?? '';
-      nombre = prefs.getString('user_nombre') ?? '';
-      numero = prefs.getString('user_numeroTelefonico') ?? '';
-    });
+
+    String savedEmail = prefs.getString('user_email') ?? '';
+
+    final snapshot = await FirebaseFirestore.instance.collection("users").get();
+
+    QueryDocumentSnapshot? userDoc;
+
+    for (var doc in snapshot.docs) {
+      String firestoreEmail = doc["email"];
+
+      if (firestoreEmail.toLowerCase() == savedEmail.toLowerCase()) {
+        userDoc = doc;
+        break;
+      }
+    }
+
+    if (userDoc != null) {
+      final data = userDoc.data() as Map<String, dynamic>;
+
+      setState(() {
+        email = data["email"] ?? '';
+        nombre = data["nombre"] ?? '';
+        numero = data["numeroTelefonico"] ?? '';
+      });
+    }
   }
 
   // Cierra sesión limpiando preferencias y regresando al login
