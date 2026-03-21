@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 // Importa Firestore para usar la base de datos en la nube
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// HTTP para conectar con Render
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 // Pantalla para agregar un usuario nuevo
 import 'agregUser.dart';
 
@@ -17,52 +21,90 @@ class CrudUserScreen extends StatefulWidget {
 
 // Estado del widget (maneja lógica y datos)
 class _CrudUserScreenState extends State<CrudUserScreen> {
-  // Instancia de Firestore
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Variable para mostrar un loader cuando se realiza una acción
   bool _loading = false;
 
-  // Colores personalizados usados en la interfaz
   static const Color azul = Color(0xFF005BBB);
   static const Color morado = Color(0xFF3C2E7F);
 
-  // ===============================
-  // MÉTODO PARA ELIMINAR USUARIO
-  // ===============================
-  Future<void> _eliminarUsuario(String uid) async {
-    // Activa el indicador de carga
-    setState(() => _loading = true);
-    try {
-      // Elimina el documento del usuario por su ID
-      await _firestore.collection("users").doc(uid).delete();
+  final String baseUrl = "https://firestore-listener-t3ge.onrender.com";
 
-      // Muestra mensaje de éxito
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Usuario eliminado de Firestore.")),
+  // ===============================
+  // 🗑️ ELIMINAR USUARIO (CONFIRM + RENDER)
+  // ===============================
+  Future<void> _eliminarUsuario(String uid, String nombre) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: morado,
+            title: const Text(
+              'Confirmar eliminación',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: Text(
+              '¿Eliminar usuario $nombre?',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  'Cancelar',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Aceptar',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _loading = true);
+
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/delete-user"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"uid": uid}),
       );
+
+      if (res.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Usuario eliminado correctamente")),
+        );
+      } else {
+        throw Exception("Error en servidor");
+      }
     } catch (e) {
-      // Muestra mensaje de error
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Error al eliminar: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
-    // Desactiva el indicador de carga
+
     setState(() => _loading = false);
   }
 
   // ===============================
-  // MÉTODO PARA EDITAR USUARIO
+  // ✏️ EDITAR USUARIO (RENDER)
   // ===============================
   Future<void> _editarUsuario(String uid, Map<String, dynamic> userData) async {
-    // Controladores para los campos del formulario
     final nombreController = TextEditingController(text: userData['nombre']);
     final telefonoController = TextEditingController(
       text: userData['numeroTelefonico'],
     );
     final rolController = TextEditingController(text: userData['rolUser']);
+    final emailController = TextEditingController(text: userData['email']);
+    final passwordController = TextEditingController();
 
-    // Muestra un cuadro de diálogo para editar los datos
     await showDialog(
       context: context,
       builder:
@@ -72,46 +114,60 @@ class _CrudUserScreenState extends State<CrudUserScreen> {
               'Editar usuario',
               style: TextStyle(color: Colors.white),
             ),
-
-            // Contenido del formulario
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Campo nombre
-                TextField(
-                  controller: nombreController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Nombre',
-                    labelStyle: TextStyle(color: Colors.white70),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nombreController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre',
+                      labelStyle: TextStyle(color: Colors.white70),
+                    ),
                   ),
-                ),
 
-                // Campo teléfono
-                TextField(
-                  controller: telefonoController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Teléfono',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  TextField(
+                    controller: emailController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Correo',
+                      labelStyle: TextStyle(color: Colors.white70),
+                    ),
                   ),
-                ),
 
-                // Campo rol
-                TextField(
-                  controller: rolController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: const InputDecoration(
-                    labelText: 'Rol',
-                    labelStyle: TextStyle(color: Colors.white70),
+                  TextField(
+                    controller: telefonoController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Teléfono',
+                      labelStyle: TextStyle(color: Colors.white70),
+                    ),
                   ),
-                ),
-              ],
+
+                  TextField(
+                    controller: rolController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Rol',
+                      labelStyle: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: 'Nueva contraseña (opcional)',
+                      labelStyle: TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
-            // Botones del diálogo
             actions: [
-              // Botón cancelar
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: const Text(
@@ -120,33 +176,45 @@ class _CrudUserScreenState extends State<CrudUserScreen> {
                 ),
               ),
 
-              // Botón guardar cambios
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: azul),
                 onPressed: () async {
                   try {
-                    // Actualiza los datos del usuario en Firestore
-                    await _firestore.collection("users").doc(uid).update({
-                      'nombre': nombreController.text.trim(),
-                      'numeroTelefonico': telefonoController.text.trim(),
-                      'rolUser': rolController.text.trim(),
-                    });
-
-                    // Cierra el diálogo
-                    Navigator.pop(context);
-
-                    // Mensaje de éxito
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Usuario actualizado')),
+                    final res = await http.post(
+                      Uri.parse("$baseUrl/update-user"),
+                      headers: {"Content-Type": "application/json"},
+                      body: jsonEncode({
+                        "uid": uid,
+                        "nombre": nombreController.text.trim(),
+                        "telefono": telefonoController.text.trim(),
+                        "rol": rolController.text.trim(),
+                        "email": emailController.text.trim(),
+                        "password":
+                            passwordController.text.isNotEmpty
+                                ? passwordController.text.trim()
+                                : null,
+                      }),
                     );
+
+                    if (res.statusCode == 200) {
+                      Navigator.pop(context);
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Usuario actualizado")),
+                      );
+                    } else {
+                      throw Exception("Error servidor");
+                    }
                   } catch (e) {
-                    // Mensaje de error
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error al actualizar: $e')),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text("Error: $e")));
                   }
                 },
-                child: const Text('Guardar'),
+                child: const Text(
+                  'Guardar',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -154,14 +222,13 @@ class _CrudUserScreenState extends State<CrudUserScreen> {
   }
 
   // ===============================
-  // INTERFAZ PRINCIPAL
+  // UI
   // ===============================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // Barra superior
       appBar: AppBar(
         title: const Text('CRUD Usuarios'),
         backgroundColor: azul,
@@ -169,50 +236,32 @@ class _CrudUserScreenState extends State<CrudUserScreen> {
         centerTitle: true,
       ),
 
-      // Cuerpo de la pantalla
       body:
           _loading
-              // Muestra loader si hay una operación en curso
               ? const Center(child: CircularProgressIndicator())
-              // Escucha cambios en tiempo real de Firestore
               : StreamBuilder<QuerySnapshot>(
                 stream: _firestore.collection('users').snapshots(),
                 builder: (context, snapshot) {
-                  // Error al cargar datos
                   if (snapshot.hasError) {
-                    return Center(
-                      child: Text(
-                        'Error: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    );
+                    return Center(child: Text('Error: ${snapshot.error}'));
                   }
 
-                  // Mientras carga la información
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (!snapshot.hasData) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  // Lista de documentos
                   final docs = snapshot.data!.docs;
 
-                  // Si no hay usuarios
                   if (docs.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No hay usuarios',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                    );
+                    return const Center(child: Text('No hay usuarios'));
                   }
 
-                  // Lista de usuarios
                   return ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: docs.length,
                     itemBuilder: (context, index) {
                       final userDoc = docs[index];
-                      final userData = userDoc.data()! as Map<String, dynamic>;
+                      final data = userDoc.data() as Map<String, dynamic>;
 
                       return Card(
                         shape: RoundedRectangleBorder(
@@ -221,98 +270,43 @@ class _CrudUserScreenState extends State<CrudUserScreen> {
                         color: morado,
                         margin: const EdgeInsets.symmetric(vertical: 8),
 
-                        // Información del usuario
                         child: ListTile(
                           title: Text(
-                            userData['nombre'] ?? 'Sin nombre',
+                            data['nombre'] ?? '',
                             style: const TextStyle(color: Colors.white),
                           ),
                           subtitle: Text(
-                            userData['email'] ?? 'Sin email',
+                            data['email'] ?? '',
                             style: const TextStyle(color: Colors.white70),
                           ),
 
-                          // Botones editar y eliminar
                           trailing: SizedBox(
                             width: 130,
                             child: Row(
                               children: [
-                                // Botón editar
                                 Expanded(
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: Colors.orange,
                                     ),
                                     onPressed:
-                                        () => _editarUsuario(
-                                          userDoc.id,
-                                          userData,
-                                        ),
+                                        () => _editarUsuario(userDoc.id, data),
                                     child: const Icon(Icons.edit, size: 20),
                                   ),
                                 ),
+
                                 const SizedBox(width: 8),
 
-                                // Botón eliminar
                                 Expanded(
                                   child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.red,
                                     ),
-                                    onPressed: () async {
-                                      // Confirmación antes de eliminar
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder:
-                                            (context) => AlertDialog(
-                                              backgroundColor: morado,
-                                              title: const Text(
-                                                'Confirmar eliminación',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              content: Text(
-                                                '¿Eliminar usuario ${userData['nombre']}?',
-                                                style: const TextStyle(
-                                                  color: Colors.white70,
-                                                ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed:
-                                                      () => Navigator.pop(
-                                                        context,
-                                                        false,
-                                                      ),
-                                                  child: const Text(
-                                                    'Cancelar',
-                                                    style: TextStyle(
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ),
-                                                TextButton(
-                                                  onPressed:
-                                                      () => Navigator.pop(
-                                                        context,
-                                                        true,
-                                                      ),
-                                                  child: const Text(
-                                                    'Eliminar',
-                                                    style: TextStyle(
-                                                      color: Colors.red,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                      );
-
-                                      if (confirm == true) {
-                                        await _eliminarUsuario(userDoc.id);
-                                      }
-                                    },
+                                    onPressed:
+                                        () => _eliminarUsuario(
+                                          userDoc.id,
+                                          data['nombre'] ?? 'usuario',
+                                        ),
                                     child: const Icon(Icons.delete, size: 20),
                                   ),
                                 ),
@@ -326,7 +320,6 @@ class _CrudUserScreenState extends State<CrudUserScreen> {
                 },
               ),
 
-      // Botón flotante para agregar usuarios
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.green,
         onPressed: () {

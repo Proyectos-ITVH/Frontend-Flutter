@@ -1,19 +1,17 @@
-// Librerías base de Dart
-import 'dart:io'; // Manejo de archivos
-import 'dart:typed_data'; // Manejo de bytes
+// Librerías base
+import 'dart:io';
+import 'dart:typed_data';
 
 // Flutter y Firebase
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Librerías para exportación
-import 'package:pdf/widgets.dart' as pw; // PDF
-import 'package:path/path.dart' as path; // Rutas de archivos
-import 'package:excel/excel.dart'; // Excel
+// Exportación
+import 'package:pdf/widgets.dart' as pw;
+import 'package:path/path.dart' as path;
+import 'package:excel/excel.dart';
 
-// Pantalla para exportar datos
 class ExportarScreen extends StatefulWidget {
-  // Estanque recibido desde la pantalla anterior
   final String Estanque;
   const ExportarScreen({super.key, required this.Estanque});
 
@@ -22,11 +20,9 @@ class ExportarScreen extends StatefulWidget {
 }
 
 class _ExportarScreenState extends State<ExportarScreen> {
-  // Fechas seleccionadas por el usuario
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // Sensores disponibles para exportar
   final List<String> _sensorOptions = [
     'Todos',
     'temperatura',
@@ -36,77 +32,12 @@ class _ExportarScreenState extends State<ExportarScreen> {
     'solidos_disueltos',
   ];
 
-  // Sensor actualmente seleccionado
   String _selectedSensor = 'Todos';
 
-  // Mapa de meses en español para parsear fechas
-  static const Map<String, int> _meses = {
-    'enero': 1,
-    'febrero': 2,
-    'marzo': 3,
-    'abril': 4,
-    'mayo': 5,
-    'junio': 6,
-    'julio': 7,
-    'agosto': 8,
-    'septiembre': 9,
-    'octubre': 10,
-    'noviembre': 11,
-    'diciembre': 12,
-  };
-
-  // Convierte una fecha en texto (español) a DateTime
-  DateTime? _parseFechaFromSpanishString(String fechaStr) {
-    try {
-      if (fechaStr.trim().isEmpty) return null;
-
-      // Normaliza espacios y formato
-      String s =
-          fechaStr
-              .replaceAll('\u202F', ' ')
-              .replaceAll('\u00A0', ' ')
-              .replaceAll(RegExp(r'\s+'), ' ')
-              .toLowerCase()
-              .trim();
-
-      // Expresión regular para fechas en español
-      final regex = RegExp(
-        r'^(\d{1,2})\s+de\s+([a-záéíóúñ]+)\s+de\s+(\d{4}),\s*(\d{1,2}):(\d{2}):(\d{2})\s*(a\.m\.|p\.m\.)?$',
-      );
-
-      final m = regex.firstMatch(s);
-      if (m != null) {
-        final dia = int.parse(m.group(1)!);
-        final mes = _meses[m.group(2)!] ?? 0;
-        final anio = int.parse(m.group(3)!);
-        int hora = int.parse(m.group(4)!);
-        final minuto = int.parse(m.group(5)!);
-        final segundo = int.parse(m.group(6)!);
-        final ampm = m.group(7);
-
-        // Ajuste AM / PM
-        if (ampm != null) {
-          final a = ampm.replaceAll('.', '');
-          if (a == 'pm' && hora < 12) hora += 12;
-          if (a == 'am' && hora == 12) hora = 0;
-        }
-
-        return DateTime(anio, mes, dia, hora, minuto, segundo);
-      }
-
-      // Intenta parseo estándar
-      return DateTime.tryParse(fechaStr);
-    } catch (e) {
-      print('Error parseando fecha: $e -- input: $fechaStr');
-      return null;
-    }
-  }
-
-  // Obtiene y filtra los datos desde Firestore
+  /// 🔥 OBTENER DATOS (FIX REAL)
   Future<List<Map<String, dynamic>>> _getDataFromFirestore() async {
     if (_startDate == null || _endDate == null) return [];
 
-    // Rango de fechas completo
     final startDateTime = DateTime(
       _startDate!.year,
       _startDate!.month,
@@ -123,49 +54,54 @@ class _ExportarScreenState extends State<ExportarScreen> {
       23,
       59,
       59,
-      999,
     );
 
     final col = FirebaseFirestore.instance.collection('lecturas_sensores');
 
-    // Consulta por estanque
-    QuerySnapshot querySnapshot =
-        await col.where('estanqueId', isEqualTo: widget.Estanque).get();
+    QuerySnapshot querySnapshot;
 
-    // Fallback si no encuentra resultados
-    if (querySnapshot.docs.isEmpty) {
-      querySnapshot = await col.get();
+    try {
+      querySnapshot =
+          await col
+              .where('estanqueId', isEqualTo: widget.Estanque)
+              .where(
+                'timestamp',
+                isGreaterThanOrEqualTo: Timestamp.fromDate(startDateTime),
+              )
+              .where(
+                'timestamp',
+                isLessThanOrEqualTo: Timestamp.fromDate(endDateTime),
+              )
+              .orderBy('timestamp')
+              .get();
+    } catch (e) {
+      // fallback para datos viejos (String)
+      querySnapshot =
+          await col.where('estanqueId', isEqualTo: widget.Estanque).get();
     }
 
     final filteredData = <Map<String, dynamic>>[];
 
-    // Recorre documentos
     for (var doc in querySnapshot.docs) {
       final data = doc.data() as Map<String, dynamic>? ?? {};
-      final docEstanque = (data['estanqueId'] ?? '').toString();
-      if (docEstanque != widget.Estanque) continue;
 
-      // Obtiene timestamp
-      dynamic ts = data['timestamp'];
       DateTime? fecha;
+      final ts = data['timestamp'];
 
       if (ts is Timestamp) {
         fecha = ts.toDate().toLocal();
       } else if (ts is String) {
-        fecha = _parseFechaFromSpanishString(ts)?.toLocal();
-      } else {
-        continue;
+        fecha = DateTime.tryParse(ts)?.toLocal();
       }
 
       if (fecha == null) continue;
+
       if (fecha.isBefore(startDateTime) || fecha.isAfter(endDateTime)) continue;
 
-      // Mapa base con fecha
       Map<String, dynamic> mapItem = {
         'fecha': fecha.toIso8601String().replaceFirst('T', ' ').split('.')[0],
       };
 
-      // Agrega sensores
       if (_selectedSensor == 'Todos') {
         for (var sensor in _sensorOptions.where((e) => e != 'Todos')) {
           mapItem[sensor] = data['valores_sensores']?[sensor]?.toString() ?? '';
@@ -178,14 +114,13 @@ class _ExportarScreenState extends State<ExportarScreen> {
       filteredData.add(mapItem);
     }
 
-    // Orden cronológico
     filteredData.sort((a, b) => a['fecha'].compareTo(b['fecha']));
     return filteredData;
   }
 
-  // Agrega unidades según el sensor
   String _agregarUnidad(String sensor, dynamic value) {
     if (value == null || value.toString().isEmpty) return '';
+
     switch (sensor) {
       case 'temperatura':
         return '$value °C';
@@ -202,9 +137,10 @@ class _ExportarScreenState extends State<ExportarScreen> {
     }
   }
 
-  // Exporta datos como PDF
+  /// 📄 PDF SIN ERROR
   Future<void> _exportAsPdf() async {
     final data = await _getDataFromFirestore();
+
     if (data.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay datos para exportar.')),
@@ -214,7 +150,6 @@ class _ExportarScreenState extends State<ExportarScreen> {
 
     final pdf = pw.Document();
 
-    // Encabezados
     List<String> headers = [
       'Fecha',
       ...(_selectedSensor == 'Todos'
@@ -222,7 +157,6 @@ class _ExportarScreenState extends State<ExportarScreen> {
           : [_selectedSensor]),
     ];
 
-    // Filas
     final tableData =
         data.map((item) {
           return [
@@ -235,16 +169,23 @@ class _ExportarScreenState extends State<ExportarScreen> {
           ];
         }).toList();
 
-    pdf.addPage(
-      pw.Page(
-        build:
-            (context) =>
-                pw.Table.fromTextArray(headers: headers, data: tableData),
-      ),
-    );
+    /// 🔥 FIX TooManyPagesException
+    const rowsPerPage = 25;
 
-    // Guarda PDF en Descargas
-    final pdfBytes = await pdf.save();
+    for (int i = 0; i < tableData.length; i += rowsPerPage) {
+      final chunk = tableData.skip(i).take(rowsPerPage).toList();
+
+      pdf.addPage(
+        pw.Page(
+          build: (context) {
+            return pw.Table.fromTextArray(headers: headers, data: chunk);
+          },
+        ),
+      );
+    }
+
+    final bytes = await pdf.save();
+
     final directory = Directory('/storage/emulated/0/Download');
     if (!await directory.exists()) await directory.create(recursive: true);
 
@@ -255,16 +196,17 @@ class _ExportarScreenState extends State<ExportarScreen> {
       ),
     );
 
-    await file.writeAsBytes(Uint8List.fromList(pdfBytes));
+    await file.writeAsBytes(Uint8List.fromList(bytes));
 
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('PDF guardado en: ${file.path}')));
   }
 
-  // Exporta datos como Excel
+  /// 📊 EXCEL
   Future<void> _exportAsExcel() async {
     final data = await _getDataFromFirestore();
+
     if (data.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay datos para exportar.')),
@@ -275,7 +217,6 @@ class _ExportarScreenState extends State<ExportarScreen> {
     var excel = Excel.createExcel();
     Sheet sheet = excel['Sheet1'];
 
-    // Encabezados
     List<String> headers = [
       'Fecha',
       ...(_selectedSensor == 'Todos'
@@ -283,20 +224,17 @@ class _ExportarScreenState extends State<ExportarScreen> {
           : [_selectedSensor]),
     ];
 
-    // Escribe encabezados
     for (int i = 0; i < headers.length; i++) {
       sheet
           .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0))
           .value = TextCellValue(headers[i]);
     }
 
-    // Escribe filas
     for (int i = 0; i < data.length; i++) {
       final item = data[i];
-      final rowIndex = i + 1;
 
       sheet
-          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex))
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: i + 1))
           .value = TextCellValue(item['fecha']);
 
       final sensores =
@@ -304,22 +242,18 @@ class _ExportarScreenState extends State<ExportarScreen> {
               ? _sensorOptions.where((e) => e != 'Todos')
               : [_selectedSensor];
 
-      int colIndex = 1;
+      int col = 1;
+
       for (var sensor in sensores) {
         sheet
-            .cell(
-              CellIndex.indexByColumnRow(
-                columnIndex: colIndex,
-                rowIndex: rowIndex,
-              ),
-            )
+            .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: i + 1))
             .value = TextCellValue(_agregarUnidad(sensor, item[sensor]));
-        colIndex++;
+        col++;
       }
     }
 
     final bytes = excel.encode();
-    if (bytes == null || bytes.isEmpty) return;
+    if (bytes == null) return;
 
     final directory = Directory('/storage/emulated/0/Download');
     if (!await directory.exists()) await directory.create(recursive: true);
@@ -338,7 +272,6 @@ class _ExportarScreenState extends State<ExportarScreen> {
     ).showSnackBar(SnackBar(content: Text('Excel guardado en: ${file.path}')));
   }
 
-  // Selector de fechas
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final selectedDate = await showDatePicker(
       context: context,
@@ -361,9 +294,9 @@ class _ExportarScreenState extends State<ExportarScreen> {
     }
   }
 
-  // Widget selector de fecha
   Widget _buildDatePicker(String label, bool isStart) {
     final date = isStart ? _startDate : _endDate;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.7),
@@ -388,7 +321,6 @@ class _ExportarScreenState extends State<ExportarScreen> {
     );
   }
 
-  // Dropdown de sensores
   Widget _buildSensorDropdown() {
     return Container(
       decoration: BoxDecoration(
@@ -418,13 +350,12 @@ class _ExportarScreenState extends State<ExportarScreen> {
     );
   }
 
-  // UI principal
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Exportar archivos"),
-        backgroundColor: Color(0xFF005BBB),
+        backgroundColor: const Color(0xFF005BBB),
         foregroundColor: Colors.white,
         centerTitle: true,
       ),

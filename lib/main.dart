@@ -1,9 +1,17 @@
-import 'package:firebase_messaging/firebase_messaging.dart'; //Importación para uso en web
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'firebase_options.dart'; // generado por flutterfire configure
+import 'firebase_options.dart';
 import 'loginScreen.dart';
+
+/// ===============================
+/// HANDLER PARA NOTIFICACIONES EN BACKGROUND
+/// ===============================
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  print("📩 Notificación recibida en background: ${message.messageId}");
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,11 +19,29 @@ void main() async {
   // Inicializamos Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  //Inicialización para web
-  await FirebaseMessaging.instance.requestPermission();
+  /// Registrar handler de mensajes en background
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // Inicializamos la localización para Español (España)
-  await initializeDateFormatting('es_ES', null); // Ahora 'es_ES' es un String
+  /// Pedir permisos de notificación
+  NotificationSettings settings = await FirebaseMessaging.instance
+      .requestPermission(alert: true, badge: true, sound: true);
+
+  print("🔔 Permiso notificaciones: ${settings.authorizationStatus}");
+
+  /// Obtener token FCM para verificar que se genere
+  String? token = await FirebaseMessaging.instance.getToken();
+
+  print("🔥 TOKEN FCM GENERADO: $token");
+
+  /// Listener cuando llega una notificación con la app abierta
+  FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    print("📩 Notificación recibida en foreground");
+    print("Título: ${message.notification?.title}");
+    print("Cuerpo: ${message.notification?.body}");
+  });
+
+  // Inicializamos localización
+  await initializeDateFormatting('es_ES', null);
 
   runApp(const MyApp());
 }

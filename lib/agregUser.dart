@@ -1,19 +1,11 @@
-// Widgets básicos de Flutter
 import 'package:flutter/material.dart';
-
-// Firestore para guardar información del usuario
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bcrypt/bcrypt.dart';
 
-// Firebase Authentication para crear usuarios
+// 🔥 IMPORTANTE (AUTH)
 import 'package:firebase_auth/firebase_auth.dart';
 
-// SharedPreferences para obtener datos locales (ej. quién crea el usuario)
-import 'package:shared_preferences/shared_preferences.dart';
-
-// BCrypt para encriptar contraseñas antes de guardarlas
-import 'package:bcrypt/bcrypt.dart'; // 👈 para encriptar contraseñas
-
-// Pantalla para agregar un nuevo usuario
 class AgregUserScreen extends StatefulWidget {
   const AgregUserScreen({super.key});
 
@@ -22,92 +14,80 @@ class AgregUserScreen extends StatefulWidget {
 }
 
 class _AgregUserScreenState extends State<AgregUserScreen> {
-  // Key para validar el formulario
   final _formKey = GlobalKey<FormState>();
 
-  // Controladores para los campos del formulario
   final TextEditingController _nombreController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _telefonoController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _rolController = TextEditingController();
 
-  // Variable para mostrar loader mientras se guarda
   bool _loading = false;
 
-  // Método que guarda el usuario en Auth y Firestore
   Future<void> _guardarUsuario() async {
-    // Valida el formulario
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _loading = true);
 
     try {
-      // Obtener el nombre del usuario que está creando el nuevo usuario
       final prefs = await SharedPreferences.getInstance();
       final String? creadorNombre = prefs.getString("user_nombre");
 
-      // Obtener valores del formulario
       final String nombre = _nombreController.text.trim();
       final String email = _emailController.text.trim();
       final String telefono = _telefonoController.text.trim();
       final String password = _passwordController.text.trim();
 
-      // Si no se escribe rol, por defecto será "user"
       final String rol =
           _rolController.text.trim().isNotEmpty
               ? _rolController.text.trim()
               : "user";
 
-      // 🔒 Encriptar la contraseña antes de guardarla en Firestore
+      // 🔒 HASH PARA FIRESTORE (TU LOGIN)
       final String hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
 
-      // Crear usuario en Firebase Authentication
-      final UserCredential userCredential = await FirebaseAuth.instance
+      // =========================
+      // 🔥 1. CREAR EN AUTH
+      // =========================
+      final userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
 
-      final User? user = userCredential.user;
+      final uid = userCredential.user!.uid;
 
-      // Si el usuario se creó correctamente
-      if (user != null) {
-        // Guardar información adicional en Firestore
-        await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
-          "nombre": nombre,
-          "email": email,
-          "numeroTelefonico": telefono,
-          "password": hashedPassword, // 👈 contraseña encriptada
-          "rolUser": rol,
-          "createdBy": creadorNombre ?? "sistema",
-          "createdAt": DateTime.now(),
-        });
+      // =========================
+      // 🔥 2. GUARDAR EN FIRESTORE
+      // =========================
+      await FirebaseFirestore.instance.collection("users").doc(uid).set({
+        "nombre": nombre,
+        "email": email,
+        "numeroTelefonico": telefono,
+        "password": hashedPassword, // 🔐 bcrypt
+        "rolUser": rol,
+        "createdBy": creadorNombre ?? "sistema",
+        "createdAt": DateTime.now(),
+        "uid": uid,
+      });
 
-        // Mensaje de éxito
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Usuario agregado correctamente")),
-        );
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Usuario creado correctamente")),
+      );
 
-        // Regresa a la pantalla anterior
-        Navigator.pop(context);
-      }
-    }
-    // Manejo de errores específicos de Firebase Auth
-    on FirebaseAuthException catch (e) {
-      String mensaje = "Ocurrió un error.";
+      Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      String mensaje = "Error";
 
-      if (e.code == 'email-already-in-use') {
-        mensaje = "Este correo ya está registrado.";
-      } else if (e.code == 'invalid-email') {
-        mensaje = "El correo no es válido.";
-      } else if (e.code == 'weak-password') {
-        mensaje = "La contraseña es demasiado débil.";
+      if (e.code == "email-already-in-use") {
+        mensaje = "❌ El correo ya está registrado";
+      } else if (e.code == "invalid-email") {
+        mensaje = "❌ Correo inválido";
+      } else if (e.code == "weak-password") {
+        mensaje = "❌ Contraseña muy débil";
       }
 
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(mensaje)));
-    }
-    // Cualquier otro error
-    catch (e) {
+    } catch (e) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -121,7 +101,6 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 254, 255),
 
-      // Barra superior
       appBar: AppBar(
         title: const Text("Agregar Usuario"),
         backgroundColor: const Color(0xFF005BBB),
@@ -141,7 +120,6 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
             child: Padding(
               padding: const EdgeInsets.all(20.0),
 
-              // Formulario
               child: Form(
                 key: _formKey,
                 child: ListView(
@@ -159,7 +137,6 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Campo Nombre
                     _buildTextField(
                       controller: _nombreController,
                       label: "Nombre",
@@ -170,9 +147,9 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
                                   ? "Ingrese un nombre"
                                   : null,
                     ),
+
                     const SizedBox(height: 15),
 
-                    // Campo Correo
                     _buildTextField(
                       controller: _emailController,
                       label: "Correo",
@@ -184,18 +161,18 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
                                   ? "Ingrese un correo"
                                   : null,
                     ),
+
                     const SizedBox(height: 15),
 
-                    // Campo Teléfono
                     _buildTextField(
                       controller: _telefonoController,
                       label: "Teléfono",
                       icon: Icons.phone,
                       inputType: TextInputType.phone,
                     ),
+
                     const SizedBox(height: 15),
 
-                    // Campo Contraseña
                     _buildTextField(
                       controller: _passwordController,
                       label: "Contraseña",
@@ -207,17 +184,17 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
                                   ? "Mínimo 6 caracteres"
                                   : null,
                     ),
+
                     const SizedBox(height: 15),
 
-                    // Campo Rol
                     _buildTextField(
                       controller: _rolController,
-                      label: "Rol (ej: admin, user, etc.)",
+                      label: "Rol (admin, user, etc.)",
                       icon: Icons.admin_panel_settings,
                     ),
+
                     const SizedBox(height: 30),
 
-                    // Botón Guardar
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF005BBB),
@@ -254,7 +231,6 @@ class _AgregUserScreenState extends State<AgregUserScreen> {
     );
   }
 
-  // 🔹 Método reutilizable para construir TextFormField
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
