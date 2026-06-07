@@ -9,6 +9,8 @@ import 'package:pdf/widgets.dart' as pw;
 class ExportService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  static const String exportFolder = "/storage/emulated/0/Download/Exports";
+
   static const List<String> sensores = [
     'temperatura',
     'ph',
@@ -31,6 +33,18 @@ class ExportService {
         "${fecha.second.toString().padLeft(2, '0')}";
   }
 
+  String generateFileName(String extension) {
+    final now = DateTime.now();
+
+    return 'datos_'
+        '${now.year}'
+        '${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}'
+        '${now.minute.toString().padLeft(2, '0')}'
+        '${now.second.toString().padLeft(2, '0')}.$extension';
+  }
+
   Future<List<Map<String, dynamic>>> getData({
     required String estanqueId,
     required DateTime start,
@@ -38,6 +52,7 @@ class ExportService {
     required String selectedSensor,
   }) async {
     final startLocal = DateTime(start.year, start.month, start.day, 0, 0, 0);
+
     final endLocal = DateTime(end.year, end.month, end.day, 23, 59, 59);
 
     final startUTC = startLocal.add(const Duration(hours: 6));
@@ -84,6 +99,11 @@ class ExportService {
 
       if (fecha == null) continue;
 
+      // Recuperado de tu versión original
+      if (fecha.isBefore(startLocal) || fecha.isAfter(endLocal)) {
+        continue;
+      }
+
       final map = <String, dynamic>{'fecha': formatFecha(fecha)};
 
       if (selectedSensor == 'Todos') {
@@ -99,6 +119,7 @@ class ExportService {
     }
 
     result.sort((a, b) => a['fecha'].compareTo(b['fecha']));
+
     return result;
   }
 
@@ -160,6 +181,8 @@ class ExportService {
 
     final bytes = await pdf.save();
 
+    print("PDF bytes generados: ${bytes.length}");
+
     final file = File(
       path.join(
         outputPath,
@@ -167,7 +190,16 @@ class ExportService {
       ),
     );
 
-    await file.writeAsBytes(Uint8List.fromList(bytes));
+    await file.writeAsBytes(Uint8List.fromList(bytes), flush: true);
+
+    print("Ruta PDF: ${file.path}");
+    print("Existe PDF: ${await file.exists()}");
+
+    if (await file.exists()) {
+      print("Tamaño PDF: ${await file.length()} bytes");
+    } else {
+      print("El archivo PDF NO existe después de writeAsBytes()");
+    }
 
     return file;
   }
@@ -178,6 +210,7 @@ class ExportService {
     required String outputPath,
   }) async {
     final excel = Excel.createExcel();
+
     final sheet = excel['Sheet1'];
 
     final headers = [
@@ -207,23 +240,29 @@ class ExportService {
         sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: i + 1))
             .value = TextCellValue(addUnit(s, item[s]));
+
         col++;
       }
     }
 
     final bytes = excel.encode();
+
     if (bytes == null) {
-      throw Exception("Error al generar Excel");
+      throw Exception('Error al generar Excel');
     }
 
-    final file = File(
-      path.join(
-        outputPath,
-        'datos_${DateTime.now().millisecondsSinceEpoch}.xlsx',
-      ),
-    );
+    final file = File(path.join(outputPath, generateFileName('xlsx')));
 
-    await file.writeAsBytes(Uint8List.fromList(bytes));
+    await file.writeAsBytes(Uint8List.fromList(bytes), flush: true);
+
+    print("Ruta Excel: ${file.path}");
+    print("Existe Excel: ${await file.exists()}");
+
+    if (await file.exists()) {
+      print("Tamaño Excel: ${await file.length()} bytes");
+    } else {
+      print("El archivo Excel NO existe después de writeAsBytes()");
+    }
 
     return file;
   }

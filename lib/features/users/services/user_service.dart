@@ -1,8 +1,5 @@
 import 'dart:convert';
 
-import 'package:bcrypt/bcrypt.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,25 +17,29 @@ class UserService {
     required String telefono,
     required String password,
     required String rol,
-    required String creador,
   }) async {
-    final hashedPassword = BCrypt.hashpw(password, BCrypt.gensalt());
+    final token = await getApiToken();
 
-    final userCredential = await FirebaseAuth.instance
-        .createUserWithEmailAndPassword(email: email, password: password);
+    final response = await http.post(
+      Uri.parse('${ApiConfig.API_BASE_URL}/users/register'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "nombre": nombre,
+        "email": email,
+        "password": password,
+        "numeroTelefonico": telefono,
+        "rolUser": rol,
+      }),
+    );
 
-    final uid = userCredential.user!.uid;
+    final data = jsonDecode(response.body);
 
-    await FirebaseFirestore.instance.collection("users").doc(uid).set({
-      "nombre": nombre,
-      "email": email,
-      "numeroTelefonico": telefono,
-      "password": hashedPassword,
-      "rolUser": rol,
-      "createdBy": creador,
-      "createdAt": DateTime.now(),
-      "uid": uid,
-    });
+    if (response.statusCode != 201) {
+      throw Exception(data['message'] ?? 'Error al registrar usuario');
+    }
   }
 
   Future<String> deleteUser(String uid) async {

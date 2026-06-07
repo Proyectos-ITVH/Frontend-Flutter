@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'config/firebase/firebase_options.dart';
-import 'features/auth/screens/login_screen.dart';
+import 'features/animations/screens/splash_screen.dart';
 
 /// ===============================
 /// HANDLER PARA NOTIFICACIONES EN BACKGROUND
@@ -58,7 +58,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.black87,
       ),
-      home: const LoginScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

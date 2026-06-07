@@ -52,6 +52,7 @@ dependencies:
   firebase_messaging: ^15.2.10
   rename_app: ^1.6.5
   flutter_launcher_icons: ^0.14.4
+  lottie: ^3.3.0
 
 dev_dependencies:
   flutter_test:
@@ -83,7 +84,9 @@ flutter:
   assets: 
   - assets/
   - assets/logo.png
+  - assets/animation.png
   - assets/img.png
+  - assets/animations/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

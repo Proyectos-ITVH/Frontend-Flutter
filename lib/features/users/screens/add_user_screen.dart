@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../services/user_service.dart';
 
 class AddUserScreen extends StatefulWidget {
@@ -29,10 +27,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
     setState(() => _loading = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      final String? creadorNombre = prefs.getString("user_nombre");
-
       final String nombre = _nombreController.text.trim();
 
       final String email = _emailController.text.trim();
@@ -52,7 +46,6 @@ class _AddUserScreenState extends State<AddUserScreen> {
         telefono: telefono,
         password: password,
         rol: rol,
-        creador: creadorNombre ?? "sistema",
       );
 
       if (!mounted) return;
@@ -62,18 +55,14 @@ class _AddUserScreenState extends State<AddUserScreen> {
       );
 
       Navigator.pop(context);
-    } on Exception catch (e) {
-      String mensaje = "Error al crear usuario";
-
-      if (e.toString().contains("email-already-in-use")) {
-        mensaje = "❌ El correo ya está registrado";
-      } else if (e.toString().contains("invalid-email")) {
-        mensaje = "❌ Correo inválido";
-      } else if (e.toString().contains("weak-password")) {
-        mensaje = "❌ Contraseña muy débil";
-      }
-
+    } catch (e) {
       if (!mounted) return;
+
+      String mensaje = e.toString();
+
+      if (mensaje.startsWith("Exception: ")) {
+        mensaje = mensaje.replaceFirst("Exception: ", "");
+      }
 
       ScaffoldMessenger.of(
         context,
